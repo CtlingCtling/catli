@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { App } from './App.js';
+import { renderApp } from './App.js';
 import { ModelService } from '../services/ModelService.js';
 import { SessionStore } from '../core/SessionStore.js';
 import { ConfigManager } from '../core/ConfigManager.js';
@@ -72,8 +72,7 @@ async function runCommandMode(command: string, configManager: ConfigManager, _se
 }
 
 async function runInteractiveMode(configManager: ConfigManager, modelService: ModelService, sessionStore: SessionStore) {
-  const app = new App(configManager, modelService, sessionStore);
-  await app.run();
+  await renderApp({ configManager, modelService, sessionStore });
 }
 
 function showHelp() {

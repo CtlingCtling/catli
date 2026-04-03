@@ -13,10 +13,10 @@ export class ModelService {
 
   private initializeOpenAI(): void {
     const config = this.configManager.load();
-    const apiKey = config.apiKey;
+    const apiKey = this.configManager.getApiKey();
 
     if (!apiKey) {
-      console.warn('DeepSeek API key not configured. Use /config command to set it.');
+      console.warn('DeepSeek API key not configured. Set DEEPSEEK_API_KEY environment variable.');
       return;
     }
 
@@ -28,7 +28,7 @@ export class ModelService {
 
   async *streamChat(messages: { role: string; content: string }[]): AsyncGenerator<StreamResponse> {
     if (!this.openai) {
-      yield { content: 'Error: API key not configured. Please set your DeepSeek API key with /config command.', done: true, error: 'NO_API_KEY' };
+      yield { content: 'Error: API key not configured. Please set DEEPSEEK_API_KEY environment variable.', done: true, error: 'NO_API_KEY' };
       return;
     }
 
@@ -75,7 +75,7 @@ export class ModelService {
 
   async sendMessage(messages: { role: string; content: string }[]): Promise<string> {
     if (!this.openai) {
-      return 'Error: API key not configured. Please set your DeepSeek API key with /config command.';
+      return 'Error: API key not configured. Please set DEEPSEEK_API_KEY environment variable.';
     }
 
     const config = this.configManager.load();
@@ -100,6 +100,6 @@ export class ModelService {
   }
 
   isConfigured(): boolean {
-    return this.openai !== null;
+    return this.configManager.hasApiKey();
   }
 }

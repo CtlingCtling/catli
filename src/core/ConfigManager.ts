@@ -39,8 +39,9 @@ export class ConfigManager {
       const content = readFileSync(this.configPath, 'utf-8');
       const config = JSON.parse(content);
       
-      // 合并默认配置，确保所有字段存在
-      return { ...this.getDefaultConfig(), ...config };
+      // 合并默认配置，确保所有字段存在，但不包含apiKey（从环境变量读取）
+      const { apiKey, ...fileConfig } = config;
+      return { ...this.getDefaultConfig(), ...fileConfig };
     } catch (error) {
       console.error('Failed to load config:', error);
       return this.getDefaultConfig();
@@ -52,7 +53,9 @@ export class ConfigManager {
     
     try {
       const currentConfig = this.load();
-      const newConfig = { ...currentConfig, ...config };
+      // 保存时排除apiKey字段
+      const { apiKey, ...configToSave } = config;
+      const newConfig = { ...currentConfig, ...configToSave };
       writeFileSync(this.configPath, JSON.stringify(newConfig, null, 2), 'utf-8');
     } catch (error) {
       console.error('Failed to save config:', error);
@@ -60,11 +63,17 @@ export class ConfigManager {
   }
 
   getApiKey(): string | undefined {
+    // 优先从环境变量读取
+    if (process.env.DEEPSEEK_API_KEY) {
+      return process.env.DEEPSEEK_API_KEY;
+    }
+    
+    // 其次从配置文件读取（向后兼容）
     const config = this.load();
     return config.apiKey;
   }
 
-  setApiKey(apiKey: string): void {
-    this.save({ apiKey });
+  hasApiKey(): boolean {
+    return !!this.getApiKey();
   }
 }
