@@ -1,0 +1,22 @@
+{
+  "name": "catli",
+  "version": "0.1.0",
+  "description": "Cat CLI - AI Agent CLI Client based on DeepSeek API",
+  "type": "module",
+  "main": "src/cli.ts",
+  "bin": {
+    "catli": "src/cli.ts"
+  },
+  "scripts": {
+    "start": "tsx src/cli.ts",
+    "test": "vitest",
+    "test:run": "vitest run"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0"
+  }
+}
