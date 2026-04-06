@@ -31,7 +31,17 @@ const toolExecutor = new ToolExecutor(toolRegistry);
 const commandRegistry = createCommandRegistry(toolRegistry, sessionManager, configManager);
 const slashHandler = new SlashHandler(commandRegistry);
 
+let innerMode = false;
+
+export function setInnerMode(value: boolean): void {
+  innerMode = value;
+}
+
 async function handleUserInput(input: string): Promise<void> {
+  if (innerMode) {
+    return;
+  }
+
   const trimmed = input.trim();
 
   if (!trimmed) return;
@@ -147,6 +157,10 @@ async function main(): Promise<void> {
   rl.prompt();
 
   rl.on("line", async (line) => {
+    if (innerMode) {
+      rl.prompt();
+      return;
+    }
     await handleUserInput(line);
     rl.prompt();
   });

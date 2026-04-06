@@ -1,6 +1,7 @@
 import { Command } from "../CommandRegistry.js";
 import { ConfigManager } from "../../../config/ConfigManager.js";
 import { output } from "../../../utils/logger.js";
+import { setInnerMode } from "../../../cli.js";
 import * as readline from "readline";
 
 export function createConfigCommand(configManager: ConfigManager): Command {
@@ -18,6 +19,8 @@ export function createConfigCommand(configManager: ConfigManager): Command {
       output(`  historyPath: ${config.historyPath}`);
       output("");
       output("Enter key=value to set, key to view, e to exit.");
+
+      setInnerMode(true);
 
       const rl = readline.createInterface({
         input: process.stdin,
@@ -108,6 +111,7 @@ export function createConfigCommand(configManager: ConfigManager): Command {
         }
       } finally {
         rl.close();
+        setInnerMode(false);
       }
 
       return true;

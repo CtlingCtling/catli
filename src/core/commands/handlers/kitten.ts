@@ -1,6 +1,7 @@
 import { Command } from "../CommandRegistry.js";
 import { output } from "../../../utils/logger.js";
 import { KittenConfigManager } from "../../kitten/KittenConfig.js";
+import { setInnerMode } from "../../../cli.js";
 import * as readline from "readline";
 
 export function createKittenCommand(): Command {
@@ -17,6 +18,8 @@ export function createKittenCommand(): Command {
       output(`  apiKeyEnv: ${config.apiKeyEnv}`);
       output("");
       output("Enter key=value to set, key to view, e to exit.");
+
+      setInnerMode(true);
 
       const rl = readline.createInterface({
         input: process.stdin,
@@ -85,6 +88,7 @@ export function createKittenCommand(): Command {
         }
       } finally {
         rl.close();
+        setInnerMode(false);
       }
 
       return true;
