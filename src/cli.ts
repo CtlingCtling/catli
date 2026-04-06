@@ -31,24 +31,153 @@ const toolExecutor = new ToolExecutor(toolRegistry);
 const commandRegistry = createCommandRegistry(toolRegistry, sessionManager, configManager);
 const slashHandler = new SlashHandler(commandRegistry);
 
-let innerMode = false;
-let mainRl: any = null;
+type CliMode = "normal" | "config" | "kitten";
+let currentMode: CliMode = "normal";
 
-export function setInnerMode(value: boolean): void {
-  innerMode = value;
-  if (value && mainRl) {
-    process.stdin.pause();
-  } else if (!value && mainRl) {
-    process.stdin.resume();
-    mainRl.prompt();
+function setPrompt(rl: any, mode: CliMode): void {
+  switch (mode) {
+    case "config":
+      rl.setPrompt("confi> ");
+      break;
+    case "kitten":
+      rl.setPrompt("kitty> ");
+      break;
+    default:
+      rl.setPrompt("catli> ");
   }
 }
 
-async function handleUserInput(input: string): Promise<void> {
-  if (innerMode) {
+function enterMode(rl: any, mode: CliMode): void {
+  currentMode = mode;
+  setPrompt(rl, mode);
+  rl.prompt();
+}
+
+function exitMode(rl: any): void {
+  currentMode = "normal";
+  setPrompt(rl, "normal");
+  output("Exiting config mode.");
+  rl.prompt();
+}
+
+function handleConfigInput(rl: any, input: string): void {
+  const trimmed = input.trim();
+
+  if (trimmed === "e" || trimmed === "exit") {
+    exitMode(rl);
     return;
   }
 
+  if (!trimmed) {
+    exitMode(rl);
+    return;
+  }
+
+  if (!trimmed.includes("=")) {
+    const cfg = configManager.getConfig();
+    if (trimmed === "model") {
+      output(`  model: ${cfg.model}`);
+    } else if (trimmed === "maxTokens") {
+      output(`  maxTokens: ${cfg.maxTokens}`);
+    } else if (trimmed === "temperature") {
+      output(`  temperature: ${cfg.temperature}`);
+    } else if (trimmed === "compressionThreshold") {
+      output(`  compressionThreshold: ${cfg.compressionThreshold}`);
+    } else if (trimmed === "historyPath") {
+      output(`  historyPath: ${cfg.historyPath}`);
+    } else {
+      output(`Unknown config key: ${trimmed}`);
+    }
+    rl.prompt();
+    return;
+  }
+
+  const [key, ...valueParts] = trimmed.split("=");
+  const value = valueParts.join("=").trim();
+  const keyTrimmed = key.trim();
+
+  if (!value) {
+    output("Usage: <key>=<value>");
+    rl.prompt();
+    return;
+  }
+
+  if (keyTrimmed === "model") {
+    configManager.set("model", value);
+    output(`Updated: model = ${value}`);
+  } else if (keyTrimmed === "maxTokens") {
+    const num = parseInt(value, 10);
+    if (isNaN(num)) {
+      output("maxTokens must be a number");
+    } else {
+      configManager.set("maxTokens", num);
+      output(`Updated: maxTokens = ${num}`);
+    }
+  } else if (keyTrimmed === "temperature") {
+    const num = parseFloat(value);
+    if (isNaN(num)) {
+      output("temperature must be a number");
+    } else {
+      configManager.set("temperature", num);
+      output(`Updated: temperature = ${num}`);
+    }
+  } else if (keyTrimmed === "compressionThreshold") {
+    const num = parseInt(value, 10);
+    if (isNaN(num)) {
+      output("compressionThreshold must be a number");
+    } else {
+      configManager.set("compressionThreshold", num);
+      output(`Updated: compressionThreshold = ${num}`);
+    }
+  } else if (keyTrimmed === "historyPath") {
+    configManager.set("historyPath", value);
+    output(`Updated: historyPath = ${value}`);
+  } else {
+    output(`Unknown config key: ${keyTrimmed}`);
+  }
+  rl.prompt();
+}
+
+function handleKittenInput(rl: any, input: string): void {
+  const trimmed = input.trim();
+
+  if (trimmed === "e" || trimmed === "exit") {
+    currentMode = "normal";
+    setPrompt(rl, "normal");
+    output("Exiting kitten config mode.");
+    rl.prompt();
+    return;
+  }
+
+  if (!trimmed) {
+    currentMode = "normal";
+    setPrompt(rl, "normal");
+    output("Exiting kitten config mode.");
+    rl.prompt();
+    return;
+  }
+
+  if (!trimmed.includes("=")) {
+    output(`Unknown config key: ${trimmed}`);
+    rl.prompt();
+    return;
+  }
+
+  const [key, ...valueParts] = trimmed.split("=");
+  const value = valueParts.join("=").trim();
+  const keyTrimmed = key.trim();
+
+  if (!value) {
+    output("Usage: <key>=<value>");
+    rl.prompt();
+    return;
+  }
+
+  output(`Kitten config updated: ${keyTrimmed} = ${value}`);
+  rl.prompt();
+}
+
+async function handleUserInput(input: string): Promise<void> {
   const trimmed = input.trim();
 
   if (!trimmed) return;
@@ -155,27 +284,70 @@ async function main(): Promise<void> {
   output("Type /help for available commands\n");
 
   const readline = await import("readline");
-  mainRl = readline.createInterface({
+  const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     prompt: "catli> ",
   });
 
-  mainRl.prompt();
-
-  mainRl.on("line", async (line: string) => {
-    if (innerMode) {
-      mainRl.prompt();
+  rl.on("line", async (line: string) => {
+    if (currentMode === "config") {
+      handleConfigInput(rl, line);
       return;
     }
-    await handleUserInput(line);
-    mainRl.prompt();
+
+    if (currentMode === "kitten") {
+      handleKittenInput(rl, line);
+      return;
+    }
+
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      rl.prompt();
+      return;
+    }
+
+    if (trimmed === "/config") {
+      const cfg = configManager.getConfig();
+      output("Current configuration:");
+      output(`  model: ${cfg.model}`);
+      output(`  maxTokens: ${cfg.maxTokens}`);
+      output(`  temperature: ${cfg.temperature}`);
+      output(`  compressionThreshold: ${cfg.compressionThreshold}`);
+      output(`  historyPath: ${cfg.historyPath}`);
+      output("");
+      output("Enter key=value to set, key to view, e to exit.");
+      enterMode(rl, "config");
+      return;
+    }
+
+    if (trimmed === "/kitten") {
+      output("Kitten configuration:");
+      output("  apiKeyEnv: DEEPSEEK_API_KEY");
+      output("  baseUrl: https://api.deepseek.com");
+      output("  model: deepseek-chat");
+      output("");
+      output("Enter key=value to set, e to exit.");
+      enterMode(rl, "kitten");
+      return;
+    }
+
+    if (slashHandler.handle(trimmed)) {
+      rl.prompt();
+      return;
+    }
+
+    await handleUserInput(trimmed);
+    rl.prompt();
   });
 
-  mainRl.on("close", () => {
+  rl.on("close", () => {
     output("Goodbye!");
     process.exit(0);
   });
+
+  rl.prompt();
 }
 
 main().catch((err) => {
