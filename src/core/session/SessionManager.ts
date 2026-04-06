@@ -1,7 +1,7 @@
 import { Message } from "../../types/message.js";
 import { Session, SessionStatus } from "../../types/session.js";
 import { HistoryManager } from "./HistoryManager.js";
-import { Compressor } from "./Compressor.js";
+import { Compressor, CompressionOptions } from "./Compressor.js";
 import { DeepSeekClient } from "../api/DeepSeekClient.js";
 import { debug as logDebug } from "../../utils/logger.js";
 
@@ -14,9 +14,9 @@ export class SessionManager {
   private historyManager: HistoryManager;
   private compressor: Compressor;
 
-  constructor(historyPath: string, apiClient?: DeepSeekClient) {
+  constructor(historyPath: string, apiClient?: DeepSeekClient, compressionOptions?: Partial<CompressionOptions>) {
     this.historyManager = new HistoryManager(historyPath);
-    this.compressor = new Compressor(apiClient);
+    this.compressor = new Compressor(apiClient, compressionOptions);
   }
 
   createSession(): Session {
@@ -83,6 +83,11 @@ export class SessionManager {
   }
 
   async getMessages(): Promise<Message[]> {
+    if (!this.currentSession) return [];
+    return this.compressor.compress(this.currentSession.messages);
+  }
+
+  async compress(): Promise<Message[]> {
     if (!this.currentSession) return [];
     return this.compressor.compress(this.currentSession.messages);
   }

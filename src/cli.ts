@@ -23,7 +23,15 @@ const apiClient = new DeepSeekClient(
   config.temperature
 );
 
-const sessionManager = new SessionManager(config.historyPath, apiClient);
+const sessionManager = new SessionManager(
+  config.historyPath,
+  apiClient,
+  {
+    tokenThreshold: config.compressTokenThreshold,
+    preserveRecentTokens: config.compressPreserveRecent,
+    maxTokensPerChunk: config.compressMaxChunkTokens,
+  }
+);
 sessionManager.createSession();
 
 const toolRegistry = createToolRegistry();
@@ -81,8 +89,12 @@ function handleConfigInput(rl: any, input: string): void {
       output(`  maxTokens: ${cfg.maxTokens}`);
     } else if (trimmed === "temperature") {
       output(`  temperature: ${cfg.temperature}`);
-    } else if (trimmed === "compressionThreshold") {
-      output(`  compressionThreshold: ${cfg.compressionThreshold}`);
+    } else if (trimmed === "compressTokenThreshold") {
+      output(`  compressTokenThreshold: ${cfg.compressTokenThreshold}`);
+    } else if (trimmed === "compressPreserveRecent") {
+      output(`  compressPreserveRecent: ${cfg.compressPreserveRecent}`);
+    } else if (trimmed === "compressMaxChunkTokens") {
+      output(`  compressMaxChunkTokens: ${cfg.compressMaxChunkTokens}`);
     } else if (trimmed === "historyPath") {
       output(`  historyPath: ${cfg.historyPath}`);
     } else {
@@ -121,13 +133,29 @@ function handleConfigInput(rl: any, input: string): void {
       configManager.set("temperature", num);
       output(`Updated: temperature = ${num}`);
     }
-  } else if (keyTrimmed === "compressionThreshold") {
+  } else if (keyTrimmed === "compressTokenThreshold") {
     const num = parseInt(value, 10);
     if (isNaN(num)) {
-      output("compressionThreshold must be a number");
+      output("compressTokenThreshold must be a number");
     } else {
-      configManager.set("compressionThreshold", num);
-      output(`Updated: compressionThreshold = ${num}`);
+      configManager.set("compressTokenThreshold", num);
+      output(`Updated: compressTokenThreshold = ${num}`);
+    }
+  } else if (keyTrimmed === "compressPreserveRecent") {
+    const num = parseInt(value, 10);
+    if (isNaN(num)) {
+      output("compressPreserveRecent must be a number");
+    } else {
+      configManager.set("compressPreserveRecent", num);
+      output(`Updated: compressPreserveRecent = ${num}`);
+    }
+  } else if (keyTrimmed === "compressMaxChunkTokens") {
+    const num = parseInt(value, 10);
+    if (isNaN(num)) {
+      output("compressMaxChunkTokens must be a number");
+    } else {
+      configManager.set("compressMaxChunkTokens", num);
+      output(`Updated: compressMaxChunkTokens = ${num}`);
     }
   } else if (keyTrimmed === "historyPath") {
     configManager.set("historyPath", value);
@@ -314,7 +342,9 @@ async function main(): Promise<void> {
       output(`  model: ${cfg.model}`);
       output(`  maxTokens: ${cfg.maxTokens}`);
       output(`  temperature: ${cfg.temperature}`);
-      output(`  compressionThreshold: ${cfg.compressionThreshold}`);
+      output(`  compressTokenThreshold: ${cfg.compressTokenThreshold}`);
+      output(`  compressPreserveRecent: ${cfg.compressPreserveRecent}`);
+      output(`  compressMaxChunkTokens: ${cfg.compressMaxChunkTokens}`);
       output(`  historyPath: ${cfg.historyPath}`);
       output("");
       output("Enter key=value to set, key to view, e to exit.");

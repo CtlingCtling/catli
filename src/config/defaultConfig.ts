@@ -5,7 +5,9 @@ export const defaultConfig: Config = {
   apiKey: "",
   baseUrl: "https://api.deepseek.com",
   historyPath: "./sessions",
-  compressionThreshold: 100,
   maxTokens: 4096,
   temperature: 0.7,
+  compressTokenThreshold: 6000,
+  compressPreserveRecent: 2000,
+  compressMaxChunkTokens: 1500,
 };

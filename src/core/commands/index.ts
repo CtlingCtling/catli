@@ -5,6 +5,7 @@ import { createExitCommand } from "./handlers/exit.js";
 import { createReverseCommand, createClearCommand } from "./handlers/reverse.js";
 import { createConfigCommand } from "./handlers/config.js";
 import { createKittenCommand } from "./handlers/kitten.js";
+import { createCompressCommand } from "./handlers/compress.js";
 import { ToolRegistry } from "../tools/ToolRegistry.js";
 import { SessionManager } from "../session/SessionManager.js";
 import { ConfigManager } from "../../config/ConfigManager.js";
@@ -23,6 +24,7 @@ export function createCommandRegistry(
   registry.register(createToolsCommand(toolRegistry));
   registry.register(createConfigCommand(configManager));
   registry.register(createKittenCommand());
+  registry.register(createCompressCommand(sessionManager));
 
   return registry;
 }

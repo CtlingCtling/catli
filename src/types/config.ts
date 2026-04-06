@@ -3,9 +3,11 @@ export interface Config {
   apiKey: string;
   baseUrl: string;
   historyPath: string;
-  compressionThreshold: number;
   maxTokens: number;
   temperature: number;
+  compressTokenThreshold: number;
+  compressPreserveRecent: number;
+  compressMaxChunkTokens: number;
 }
 
 export interface ConfigSource {
