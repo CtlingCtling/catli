@@ -23,7 +23,7 @@ const apiClient = new DeepSeekClient(
   config.temperature
 );
 
-const sessionManager = new SessionManager(config.historyPath, config.compressionThreshold);
+const sessionManager = new SessionManager(config.historyPath, apiClient);
 sessionManager.createSession();
 
 const toolRegistry = createToolRegistry();
@@ -196,7 +196,7 @@ async function handleUserInput(input: string): Promise<void> {
   sessionManager.addMessage(userMessage);
 
   try {
-    const messages = sessionManager.getMessages();
+    const messages = await sessionManager.getMessages();
     const tools = toolRegistry.list();
 
     if (tools.length > 0) {

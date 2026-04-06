@@ -2,6 +2,7 @@ import { Message } from "../../types/message.js";
 import { Session, SessionStatus } from "../../types/session.js";
 import { HistoryManager } from "./HistoryManager.js";
 import { Compressor } from "./Compressor.js";
+import { DeepSeekClient } from "../api/DeepSeekClient.js";
 import { debug as logDebug } from "../../utils/logger.js";
 
 function generateSessionId(): string {
@@ -12,12 +13,10 @@ export class SessionManager {
   private currentSession: Session | null = null;
   private historyManager: HistoryManager;
   private compressor: Compressor;
-  private compressionThreshold: number;
 
-  constructor(historyPath: string, compressionThreshold: number) {
-    this.compressionThreshold = compressionThreshold;
+  constructor(historyPath: string, apiClient?: DeepSeekClient) {
     this.historyManager = new HistoryManager(historyPath);
-    this.compressor = new Compressor();
+    this.compressor = new Compressor(apiClient);
   }
 
   createSession(): Session {
@@ -83,11 +82,9 @@ export class SessionManager {
     }
   }
 
-  getMessages(): Message[] {
+  async getMessages(): Promise<Message[]> {
     if (!this.currentSession) return [];
-
-    const messages = this.currentSession.messages;
-    return this.compressor.compress(messages, this.compressionThreshold);
+    return this.compressor.compress(this.currentSession.messages);
   }
 
   setStatus(status: SessionStatus): void {
