@@ -9,7 +9,7 @@ function getHelpText(): string {
     const helpPath = join(process.cwd(), "builtin_prompts", "help.md");
     return readFileSync(helpPath, "utf-8");
   } catch {
-    return "Available commands:\\n  /help - Show this help message\\n  /clear - Clear the conversation history\\n  /reverse <n> - Remove the last n rounds of conversation\\n  /compress - Manually compress conversation history\\n  /token - Show current token count\\n  /config - View and modify configuration\\n  /kitten - Configure kitten AI settings\\n  /tools - List available tools\\n  /exit - Exit the CLI";
+    return "Available commands:\\n  /help - Show this help message\\n  /clear - Clear the conversation history\\n  /reverse <n> - Remove the last n rounds of conversation\\n  /compress - Manually compress conversation history\\n  /token - Show current token count\\n  /batchmd <dir> - Batch process markdown files in directory\\n  /config - View and modify configuration\\n  /kitten - Configure kitten AI settings\\n  /tools - List available tools\\n  /exit - Exit the CLI";
   }
 }
 
