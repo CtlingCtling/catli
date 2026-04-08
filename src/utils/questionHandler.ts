@@ -13,19 +13,26 @@ export interface QuestionResult {
 
 const CUSTOM_OPTION = "Enter your own answer.";
 
+let isActive = false;
+
 export async function askQuestion(
   question: string,
   options: QuestionOption[]
 ): Promise<QuestionResult> {
+  if (isActive) {
+    return { selected: "", isCustom: false };
+  }
+
   const allOptions = [...options, { label: CUSTOM_OPTION, value: "__custom__" }];
   let selectedIndex = 0;
+  isActive = true;
 
   return new Promise((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      terminal: true,
-    });
+    readline.emitKeypressEvents(process.stdin);
+
+    if (process.stdin.isTTY) {
+      (process.stdin as any).setRawMode?.(true);
+    }
 
     function render() {
       readline.cursorTo(process.stdout, 0);
@@ -34,11 +41,11 @@ export async function askQuestion(
 
       output(question);
       output("");
-      allOptions.forEach((opt, i) => {
+      for (let i = 0; i < allOptions.length; i++) {
         const marker = i === selectedIndex ? ">" : " ";
         const check = i === selectedIndex ? "[*]" : "[ ]";
-        output(`${marker}${check} ${opt.label}`);
-      });
+        output(`${marker}${check} ${allOptions[i].label}`);
+      }
       output("");
       output("↑↓ navigate, Enter confirm");
     }
@@ -46,12 +53,16 @@ export async function askQuestion(
     function cleanup() {
       readline.cursorTo(process.stdout, 0);
       readline.moveCursor(process.stdout, 0, allOptions.length - selectedIndex + 2);
-      rl.close();
+      readline.clearScreenDown(process.stdout);
+      if (process.stdin.isTTY) {
+        (process.stdin as any).setRawMode?.(false);
+      }
+      isActive = false;
     }
 
     render();
 
-    rl.on("keypress", (_str, key) => {
+    const keyHandler = (_str: string, key: readline.Key) => {
       if (key.name === "up") {
         selectedIndex = (selectedIndex - 1 + allOptions.length) % allOptions.length;
         render();
@@ -59,9 +70,10 @@ export async function askQuestion(
         selectedIndex = (selectedIndex + 1) % allOptions.length;
         render();
       } else if (key.name === "return") {
+        process.stdin.removeListener("keypress", keyHandler);
         cleanup();
         if (allOptions[selectedIndex].value === "__custom__") {
-          promptCustomInput(rl, resolve);
+          promptCustomInput(resolve);
         } else {
           resolve({
             selected: allOptions[selectedIndex].value,
@@ -69,25 +81,21 @@ export async function askQuestion(
           });
         }
       }
-    });
+    };
+
+    process.stdin.on("keypress", keyHandler);
   });
 }
 
-function promptCustomInput(
-  _rl: readline.Interface,
-  resolve: (result: QuestionResult) => void
-): void {
-  output("");
-  output("Please enter your answer:");
-
-  const innerRl = readline.createInterface({
+function promptCustomInput(resolve: (result: QuestionResult) => void): void {
+  const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     terminal: true,
   });
 
-  innerRl.question("", (answer) => {
-    innerRl.close();
+  rl.question("", (answer) => {
+    rl.close();
     resolve({
       selected: answer.trim(),
       isCustom: true,
