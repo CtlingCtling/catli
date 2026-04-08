@@ -40,25 +40,25 @@ export async function askQuestion(
       (process.stdin as any).setRawMode?.(true);
     }
 
+    const clearLines = (count: number): void => {
+      for (let i = 0; i < count; i++) {
+        process.stdout.write("\x1b[2K\r");
+        if (i < count - 1) {
+          process.stdout.write("\x1b[1A");
+        }
+      }
+    };
+
     const render = (): void => {
-      let display = `\r${question}\n\n`;
+      let display = `${question}\n\n`;
       for (let i = 0; i < allOptions.length; i++) {
         const marker = i === selectedIndex ? ">" : " ";
         const check = i === selectedIndex ? "[*]" : "[ ]";
         display += `${marker}${check} ${allOptions[i].label}\n`;
       }
-      display += "\n↑↓ navigate, Enter confirm";
+      display += "\n↑↓ navigate, Enter confirm\n";
+      clearLines(allOptions.length + 4);
       process.stdout.write(display);
-    };
-
-    const clearRender = (): void => {
-      const lines = allOptions.length + 4;
-      process.stdout.write(`\r${" ".repeat(100)}\r`);
-      for (let i = 0; i < lines; i++) {
-        process.stdout.write("\x1b[1A\r");
-        process.stdout.write(`\r${" ".repeat(100)}\r`);
-      }
-      process.stdout.write("\r");
     };
 
     render();
@@ -66,11 +66,9 @@ export async function askQuestion(
     const keyHandler = (_str: string, key: any): void => {
       if (key.name === "up") {
         selectedIndex = (selectedIndex - 1 + allOptions.length) % allOptions.length;
-        clearRender();
         render();
       } else if (key.name === "down") {
         selectedIndex = (selectedIndex + 1) % allOptions.length;
-        clearRender();
         render();
       } else if (key.name === "return") {
         process.stdin.removeListener("keypress", keyHandler);
@@ -91,7 +89,7 @@ export async function askQuestion(
 }
 
 function promptCustomInput(resolve: (result: QuestionResult) => void): void {
-  process.stdout.write("\nPlease enter your answer: ");
+  process.stdout.write("Please enter your answer: ");
 
   let input = "";
   process.stdin.resume();
