@@ -46,9 +46,37 @@ export const ReplaceTextTool: Tool = {
         return { success: false, content: "", error: `Text not found: ${oldText}` };
       }
 
+      const lines = content.split("\n");
+      let matchLineIndex = -1;
+      const matchLines: string[] = oldText.split("\n");
+
+      for (let i = 0; i < lines.length; i++) {
+        const lineCheck = lines.slice(i, i + matchLines.length).join("\n");
+        if (lineCheck === oldText) {
+          matchLineIndex = i;
+          break;
+        }
+      }
+
+      if (matchLineIndex === -1) {
+        return { success: false, content: "", error: `Text not found: ${oldText}` };
+      }
+
       const newContent = content.replace(oldText, newText);
       writeFileSync(filePath, newContent, "utf-8");
-      return { success: true, content: `Replaced text in: ${filePath}` };
+
+      const diffLines: string[] = [];
+      for (let i = 0; i < matchLines.length; i++) {
+        const ln = matchLineIndex + i + 1;
+        diffLines.push(`${ln} - ${matchLines[i]}`);
+      }
+      const newLines = newText.split("\n");
+      for (let i = 0; i < newLines.length; i++) {
+        const ln = matchLineIndex + i + 1;
+        diffLines.push(`${ln} + ${newLines[i]}`);
+      }
+
+      return { success: true, content: diffLines.join("\n") };
     } catch (err) {
       const error = err as Error;
       return { success: false, content: "", error: error.message };

@@ -263,10 +263,39 @@ async function handleUserInput(input: string): Promise<void> {
         const results = await toolExecutor.executeAll(toolCallRequests);
 
         for (const tcResult of results) {
+          const toolName = toolCallRequests.find((t) => t.id === tcResult.id)?.name || "";
+          const toolContent = tcResult.result.content || "";
+
+          if (toolName === "bash_tool" && toolContent) {
+            const lines = toolContent.split("\n");
+            output(`[${toolName}]`);
+            for (const line of lines) {
+              output(`> ${line}`);
+            }
+            output("[called]");
+          } else if (toolName === "run_bash" && toolContent) {
+            const lines = toolContent.split("\n");
+            output(`[run_bash]`);
+            for (const line of lines) {
+              output(`> ${line}`);
+            }
+            output("[called]");
+          } else {
+            output(`[${toolName}]`);
+            if (toolContent) {
+              output(toolContent);
+            } else if (tcResult.result.error) {
+              output(`Error: ${tcResult.result.error}`);
+            } else {
+              output("(done)");
+            }
+            output("[called]");
+          }
+
           const toolMessage = new MessageBuilder()
             .setRole(MessageRole.Tool)
             .setContent(tcResult.result.content)
-            .setToolCall(tcResult.id, toolCallRequests.find((t) => t.id === tcResult.id)?.name || "")
+            .setToolCall(tcResult.id, toolName)
             .build();
 
           sessionManager.addMessage(toolMessage);

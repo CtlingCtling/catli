@@ -28,8 +28,9 @@ export function createReverseCommand(sessionManager: SessionManager): Command {
 export function createClearCommand(sessionManager: SessionManager): Command {
   return {
     name: "clear",
-    description: "Clear the conversation history",
+    description: "Clear the conversation history and screen",
     execute: async (_args: string[]): Promise<boolean> => {
+      process.stdout.write("\x1b[2J\x1b[H");
       sessionManager.createSession();
       output("Conversation history cleared.");
       return true;
