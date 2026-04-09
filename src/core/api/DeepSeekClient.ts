@@ -161,7 +161,7 @@ export class DeepSeekClient {
         content: chunk.text,
         reasoningContent: chunk.reasoningContent || "",
         toolCalls: [],
-        isComplete: chunk.isFinished,
+        isComplete: false,
       };
 
       if (chunk.isFinished && toolCallBuffers.size > 0) {
@@ -179,6 +179,13 @@ export class DeepSeekClient {
         };
 
         toolCallBuffers.clear();
+      } else if (chunk.isFinished) {
+        yield {
+          content: "",
+          reasoningContent: "",
+          toolCalls: [],
+          isComplete: true,
+        };
       }
     }
   }
