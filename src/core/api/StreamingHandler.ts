@@ -13,19 +13,45 @@ export async function runStreamingMode(
 ): Promise<void> {
   let currentMessages = [...messages];
   let isComplete = false;
+  let thinkingBuffer = "";
+  let contentBuffer = "";
   let thinkingDisplayed = false;
   let pendingToolCalls: Array<{ id: string; name: string; arguments: Record<string, unknown> }> = [];
+
+  const flushThinking = () => {
+    if (thinkingBuffer) {
+      if (!thinkingDisplayed) {
+        output("[thinking process]");
+        thinkingDisplayed = true;
+      }
+      output(thinkingBuffer);
+      thinkingBuffer = "";
+    }
+  };
+
+  const flushContent = () => {
+    if (contentBuffer) {
+      process.stdout.write(contentBuffer);
+      contentBuffer = "";
+    }
+  };
 
   while (!isComplete) {
     let hasToolCalls = false;
 
     for await (const chunk of apiClient.generateWithToolsStream(currentMessages, tools)) {
       if (chunk.reasoningContent) {
-        if (!thinkingDisplayed) {
-          output("[thinking process]");
-          thinkingDisplayed = true;
+        thinkingBuffer += chunk.reasoningContent;
+        if (thinkingBuffer.length > 50 || chunk.isComplete) {
+          flushThinking();
         }
-        output(chunk.reasoningContent);
+      }
+
+      if (chunk.content) {
+        contentBuffer += chunk.content;
+        if (chunk.content.includes("\n") || chunk.isComplete) {
+          flushContent();
+        }
       }
 
       if (chunk.toolCalls.length > 0) {
@@ -33,6 +59,8 @@ export async function runStreamingMode(
       }
 
       if (chunk.isComplete) {
+        flushThinking();
+        flushContent();
         output("[eot]");
         output("");
 
