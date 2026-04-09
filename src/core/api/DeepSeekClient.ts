@@ -146,16 +146,20 @@ export class DeepSeekClient {
 
       if (chunk.toolCalls) {
         for (const tc of chunk.toolCalls) {
+          console.error(`[DEBUG STREAM] tc: id=${tc.id}, name=${tc.name}, args=${tc.arguments}`);
           if (tc.arguments) {
             const lastBuffer = Array.from(toolCallBuffers.values()).slice(-1)[0];
             if (lastBuffer && !tc.id) {
               lastBuffer.arguments += tc.arguments;
+              console.error(`[DEBUG STREAM] appended to lastBuffer, now: ${lastBuffer.arguments}`);
             } else if (tc.id) {
               const existing = toolCallBuffers.get(tc.id);
               if (existing) {
                 existing.arguments += tc.arguments;
+                console.error(`[DEBUG STREAM] accumulated to existing, now: ${existing.arguments}`);
               } else if (tc.name) {
                 toolCallBuffers.set(tc.id, { name: tc.name, arguments: tc.arguments });
+                console.error(`[DEBUG STREAM] created new buffer`);
               }
             }
           }
@@ -175,6 +179,7 @@ export class DeepSeekClient {
           name: tc.name,
           arguments: JSON.parse(tc.arguments || "{}"),
         }));
+        console.error(`[DEBUG STREAM] yielding tool_calls: ${JSON.stringify(completeToolCalls)}`);
         yield {
           content: "",
           reasoningContent: "",
