@@ -147,7 +147,7 @@ export class DeepSeekClient {
       if (chunk.toolCalls) {
         for (const tc of chunk.toolCalls) {
           console.error(`[DEBUG STREAM] tc: id=${tc.id}, name=${tc.name}, args=${tc.arguments}`);
-          if (tc.arguments) {
+          if (tc.arguments !== undefined) {
             const lastBuffer = Array.from(toolCallBuffers.values()).slice(-1)[0];
             if (lastBuffer && !tc.id) {
               lastBuffer.arguments += tc.arguments;
