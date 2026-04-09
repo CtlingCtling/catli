@@ -69,7 +69,7 @@ export class StreamProcessor {
         text: content,
         reasoningContent,
         isFinished,
-        toolCalls: this.extractToolCalls(choice),
+        toolCalls: this.extractToolCalls(delta),
       };
     } catch {
       return null;
@@ -80,8 +80,8 @@ export class StreamProcessor {
     return this.parseLine(buffer);
   }
 
-  private extractToolCalls(choice: Record<string, unknown>): StreamChunk["toolCalls"] {
-    const toolCalls = choice.tool_calls as Array<{
+  private extractToolCalls(delta: Record<string, unknown>): StreamChunk["toolCalls"] {
+    const toolCalls = delta.tool_calls as Array<{
       id: string;
       function: { name: string; arguments: string };
     }> | undefined;
