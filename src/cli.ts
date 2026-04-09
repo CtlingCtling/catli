@@ -1,5 +1,6 @@
 import { ConfigManager } from "./config/ConfigManager.js";
 import { DeepSeekClient } from "./core/api/DeepSeekClient.js";
+import { runStreamingMode } from "./core/api/StreamingHandler.js";
 import { SessionManager } from "./core/session/SessionManager.js";
 import { createToolRegistry, ToolExecutor } from "./core/tools/index.js";
 import { createCommandRegistry, SlashHandler } from "./core/commands/index.js";
@@ -162,6 +163,10 @@ function handleConfigInput(rl: any, input: string): void {
   } else if (keyTrimmed === "historyPath") {
     configManager.set("historyPath", value);
     output(`Updated: historyPath = ${value}`);
+  } else if (keyTrimmed === "streaming") {
+    const boolVal = value === "true";
+    configManager.set("streaming", boolVal);
+    output(`Updated: streaming = ${boolVal}`);
   } else {
     output(`Unknown config key: ${keyTrimmed}`);
   }
@@ -231,7 +236,11 @@ async function handleUserInput(input: string): Promise<void> {
     const tools = toolRegistry.list();
 
     if (tools.length > 0) {
-      let result = await apiClient.generateWithTools(messages, tools);
+      const cfg = configManager.getConfig();
+      if (cfg.streaming) {
+        await runStreamingMode(messages, tools, sessionManager, apiClient, toolExecutor);
+      } else {
+        let result = await apiClient.generateWithTools(messages, tools);
 
       if (DEBUG) {
         output("[DEBUG] Initial generateWithTools result:");
@@ -339,6 +348,7 @@ async function handleUserInput(input: string): Promise<void> {
       sessionManager.addMessage(assistantMessage);
       output(result.content);
       output("");
+      }
     } else {
       let fullResponse = "";
       for await (const chunk of apiClient.generateContentStream(messages)) {
@@ -404,6 +414,7 @@ async function main(): Promise<void> {
       output(`  compressPreserveRecent: ${cfg.compressPreserveRecent}`);
       output(`  compressMaxChunkTokens: ${cfg.compressMaxChunkTokens}`);
       output(`  historyPath: ${cfg.historyPath}`);
+      output(`  streaming: ${cfg.streaming}`);
       output("");
       output("Enter key=value to set, key to view, e to exit.");
       enterMode(rl, "config");
