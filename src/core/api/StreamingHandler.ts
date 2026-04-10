@@ -24,7 +24,7 @@ export async function runStreamingMode(
     for await (const chunk of apiClient.generateWithToolsStream(currentMessages, tools)) {
       if (chunk.reasoningContent) {
         if (!thinkingDisplayed) {
-          output("\n[thinking process]\n");
+          output("\n[🧠thinking process]\n");
           thinkingDisplayed = true;
         }
         process.stdout.write(chunk.reasoningContent);
@@ -42,7 +42,7 @@ export async function runStreamingMode(
       if (chunk.isComplete) {
         if (thinkingDisplayed && !thinkingEnded) {
           thinkingEnded = true;
-          output("[eot]\n");
+          output("[💡eot]\n");
         }
 
         if (contentBuffer) {
@@ -80,15 +80,24 @@ export async function runStreamingMode(
             const toolName = toolCallRequests.find((t) => t.id === tcResult.id)?.name || "";
             const toolContent = tcResult.result.content || "";
 
-            output(`[${toolName}]`);
-            if (toolContent) {
-              output(toolContent);
-            } else if (tcResult.result.error) {
-              output(`Error: ${tcResult.result.error}`);
+            if (toolName === "run_bash" && toolContent) {
+              const lines = toolContent.split("\n");
+              output(`[🛠️${toolName}]`);
+              for (const line of lines) {
+                output(`#️⃣> ${line}`);
+              }
+              output("[✅called]");
             } else {
-              output("(done)");
+              output(`[🛠️${toolName}]`);
+              if (toolContent) {
+                output(toolContent);
+              } else if (tcResult.result.error) {
+                output(`[❌error]: ${tcResult.result.error}`);
+              } else {
+                output("[✅done]");
+              }
+              output("[✅called]");
             }
-            output("[called]");
 
             const toolMessage = new MessageBuilder()
               .setRole(MessageRole.Tool)

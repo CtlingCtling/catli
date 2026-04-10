@@ -71,7 +71,7 @@ function enterMode(rl: any, mode: CliMode): void {
 function exitMode(rl: any): void {
   currentMode = "normal";
   setPrompt(rl, "normal");
-  output("Exiting config mode.");
+  output("Exiting c⚙️nfig mode.");
   rl.prompt();
 }
 
@@ -212,7 +212,7 @@ function handleKittenInput(rl: any, input: string): void {
     return;
   }
 
-  output(`Kitten config updated: ${keyTrimmed} = ${value}`);
+  output(`[✅]Ki🐈en config updated: ${keyTrimmed} = ${value}`);
   rl.prompt();
 }
 
@@ -250,9 +250,9 @@ async function handleUserInput(input: string): Promise<void> {
         }
 
         if (result.reasoningContent) {
-          output("\n[thinking process]");
+          output("\n[🧠thinking process]");
           output(result.reasoningContent);
-          output("[eot]\n");
+          output("[💡eot]\n");
         }
 
         while (result.toolCalls.length > 0) {
