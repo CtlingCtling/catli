@@ -24,7 +24,7 @@ export async function runStreamingMode(
     for await (const chunk of apiClient.generateWithToolsStream(currentMessages, tools)) {
       if (chunk.reasoningContent) {
         if (!thinkingDisplayed) {
-          output("[thinking process]");
+          output("\n[thinking process]\n");
           thinkingDisplayed = true;
         }
         process.stdout.write(chunk.reasoningContent);
@@ -42,7 +42,7 @@ export async function runStreamingMode(
       if (chunk.isComplete) {
         if (thinkingDisplayed && !thinkingEnded) {
           thinkingEnded = true;
-          output("[eot]");
+          output("[eot]\n");
         }
 
         if (contentBuffer) {
