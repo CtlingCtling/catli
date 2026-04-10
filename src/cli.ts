@@ -514,7 +514,9 @@ async function main(): Promise<void> {
   process.stdin.on("keypress", (str: string) => {
     if (str === "\x13" && isStreamingInProgress) {
       output("\n[⛔ Ctrl+S pressed - aborting...]");
-      apiClient.abort();
+      try {
+        apiClient.abort();
+      } catch {}
       if (streamingResolve) {
         streamingResolve();
         streamingResolve = null;
