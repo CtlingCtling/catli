@@ -39,6 +39,7 @@ export class DeepSeekClient {
   private maxTokens: number;
   private temperature: number;
   private abortController: AbortController | null = null;
+  private aborted = false;
 
   constructor(apiKey: string, baseUrl: string, model: string, maxTokens: number, temperature: number) {
     this.apiKey = apiKey;
@@ -49,13 +50,17 @@ export class DeepSeekClient {
   }
 
   abort(): void {
-    if (this.abortController && !this.abortController.signal.aborted) {
-      this.abortController.abort();
+    if (this.aborted) return;
+    this.aborted = true;
+    if (this.abortController) {
+      try {
+        this.abortController.abort();
+      } catch {}
     }
   }
 
   isAborted(): boolean {
-    return this.abortController?.signal.aborted ?? false;
+    return this.aborted;
   }
 
   async generateContent(messages: Message[]): Promise<string> {
