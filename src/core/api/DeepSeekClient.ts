@@ -127,6 +127,7 @@ export class DeepSeekClient {
     toolCalls: Array<{ id: string; name: string; arguments: Record<string, unknown> }>;
     isComplete: boolean;
   }> {
+    this.aborted = false;
     this.abortController = new AbortController();
     const request = this.buildRequest(messages, true, tools);
     const processor = new StreamProcessor();
