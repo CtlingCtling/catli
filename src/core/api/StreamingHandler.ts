@@ -12,29 +12,22 @@ export interface QuestionRequest {
   options: Array<{ label: string; value: string }>;
 }
 
-export interface ToolResultItem {
-  toolId: string;
-  toolName: string;
-  result: string;
+export interface QuestionAnswerCallback {
+  (request: QuestionRequest): Promise<string>;
 }
 
-export interface ToolResultChunk {
-  type: "tool_result";
-  results: ToolResultItem[];
-}
-
-export interface CompletionChunk {
-  type: "complete";
-}
-
-export type StreamingChunk = QuestionRequest | ToolResultChunk | CompletionChunk;
+export type StreamingChunk =
+  | QuestionRequest
+  | { type: "tool_result" }
+  | { type: "complete" };
 
 export async function* runStreamingMode(
   messages: Awaited<ReturnType<SessionManager["getMessages"]>>,
   tools: any[],
   sessionManager: SessionManager,
   apiClient: DeepSeekClient,
-  toolExecutor: ToolExecutor
+  toolExecutor: ToolExecutor,
+  onQuestionAnswer?: QuestionAnswerCallback
 ): AsyncGenerator<StreamingChunk> {
   let currentMessages = [...messages];
   let isComplete = false;
@@ -102,8 +95,6 @@ export async function* runStreamingMode(
           const questionToolCalls = toolCallRequests.filter((tc) => tc.name === "question");
           const nonQuestionToolCalls = toolCallRequests.filter((tc) => tc.name !== "question");
 
-          const toolResults: ToolResultItem[] = [];
-
           if (nonQuestionToolCalls.length > 0) {
             const results = await toolExecutor.executeAll(nonQuestionToolCalls);
 
@@ -139,7 +130,6 @@ export async function* runStreamingMode(
                 .build();
 
               sessionManager.addMessage(toolMessage);
-              toolResults.push({ toolId: tcResult.id, toolName, result: toolContent });
             }
           }
 
@@ -171,21 +161,36 @@ export async function* runStreamingMode(
                 }
               }
 
-              yield {
-                type: "question",
-                toolId: tc.id,
-                toolName: tc.name,
-                question,
-                options,
-              };
+              if (onQuestionAnswer) {
+                const answer = await onQuestionAnswer({
+                  type: "question",
+                  toolId: tc.id,
+                  toolName: tc.name,
+                  question,
+                  options,
+                });
 
-              pendingToolCalls = [];
-              return;
+                const toolContent = `User selected: ${answer}`;
+                output(toolContent);
+                output("[✅called]");
+
+                const toolMessage = new MessageBuilder()
+                  .setRole(MessageRole.Tool)
+                  .setContent(toolContent)
+                  .setToolCall(tc.id, tc.name)
+                  .build();
+
+                sessionManager.addMessage(toolMessage);
+              } else {
+                yield {
+                  type: "question",
+                  toolId: tc.id,
+                  toolName: tc.name,
+                  question,
+                  options,
+                };
+              }
             }
-          }
-
-          if (toolResults.length > 0) {
-            yield { type: "tool_result", results: toolResults };
           }
 
           pendingToolCalls = [];
@@ -194,14 +199,12 @@ export async function* runStreamingMode(
           currentMessages = currentSession?.messages || [];
         } else {
           isComplete = true;
-          yield { type: "complete" };
         }
       }
     }
 
     if (!hasToolCalls && !isComplete) {
       isComplete = true;
-      yield { type: "complete" };
     }
   }
 }

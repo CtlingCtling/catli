@@ -7,7 +7,7 @@ import { createCommandRegistry, SlashHandler } from "./core/commands/index.js";
 import { MessageBuilder, MessageRole } from "./types/message.js";
 import { output, error } from "./utils/logger.js";
 import { initDebug, debug } from "./utils/debug.js";
-import * as readline from "readline";
+import { askQuestion } from "./utils/questionHandler.js";
 
 const DEBUG = process.argv.includes("--debug") || process.argv.includes("-d");
 if (DEBUG) {
@@ -217,6 +217,47 @@ function handleKittenInput(rl: any, input: string): void {
   rl.prompt();
 }
 
+async function handleStreamingWithQuestions(
+  messages: any[],
+  tools: any[],
+  sessionManager: SessionManager,
+  apiClient: DeepSeekClient,
+  toolExecutor: ToolExecutor
+): Promise<void> {
+  let streamingIterator: AsyncIterator<any> | null = null;
+
+  const onQuestionAnswer = async (request: any): Promise<string> => {
+    const options = request.options || [];
+    const questionResult = await askQuestion(request.question, options);
+    return questionResult.selected;
+  };
+
+  while (true) {
+    if (!streamingIterator) {
+      streamingIterator = runStreamingMode(
+        messages,
+        tools,
+        sessionManager,
+        apiClient,
+        toolExecutor,
+        onQuestionAnswer
+      )[Symbol.asyncIterator]();
+    }
+
+    const result = await streamingIterator.next();
+
+    if (result.done) {
+      break;
+    }
+
+    const chunk = result.value;
+
+    if (chunk.type === "complete") {
+      break;
+    }
+  }
+}
+
 async function handleUserInput(input: string): Promise<void> {
   const trimmed = input.trim();
 
@@ -242,53 +283,13 @@ async function handleUserInput(input: string): Promise<void> {
     if (tools.length > 0) {
       const cfg = configManager.getConfig();
       if (cfg.streaming) {
-        const streamingIterator = runStreamingMode(messages, tools, sessionManager, apiClient, toolExecutor);
-
-        for await (const chunk of streamingIterator) {
-          if (chunk.type === "question") {
-            const rl = readline.createInterface({
-              input: process.stdin,
-              output: process.stdout,
-            });
-
-            const question = chunk.question;
-            const options = chunk.options;
-
-            let display = `${question}\n`;
-            if (options.length > 0) {
-              for (let i = 0; i < options.length; i++) {
-                display += `  > ${options[i].label}\n`;
-              }
-            }
-            display += "\n> ";
-
-            const answer = await new Promise<string>((resolve) => {
-              rl.question(display, (ans) => {
-                rl.close();
-                resolve(ans.trim());
-              });
-            });
-
-            let selected = answer;
-            const num = parseInt(answer, 10);
-            if (!isNaN(num) && num >= 1 && num <= options.length) {
-              selected = options[num - 1].value;
-            }
-
-            const toolContent = `User selected: ${selected}`;
-            output(toolContent);
-            output("[✅called]");
-
-            const toolMessage = new MessageBuilder()
-              .setRole(MessageRole.Tool)
-              .setContent(toolContent)
-              .setToolCall(chunk.toolId, chunk.toolName)
-              .build();
-            sessionManager.addMessage(toolMessage);
-          } else if (chunk.type === "complete") {
-            break;
-          }
-        }
+        await handleStreamingWithQuestions(
+          messages,
+          tools,
+          sessionManager,
+          apiClient,
+          toolExecutor
+        );
       } else {
         let result = await apiClient.generateWithTools(messages, tools);
 
