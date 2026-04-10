@@ -13,7 +13,6 @@ export async function runStreamingMode(
 ): Promise<void> {
   let currentMessages = [...messages];
   let isComplete = false;
-  let thinkingBuffer = "";
   let contentBuffer = "";
   let thinkingDisplayed = false;
   let thinkingEnded = false;
@@ -24,22 +23,16 @@ export async function runStreamingMode(
 
     for await (const chunk of apiClient.generateWithToolsStream(currentMessages, tools)) {
       if (chunk.reasoningContent) {
-        thinkingBuffer += chunk.reasoningContent;
+        if (!thinkingDisplayed) {
+          output("[thinking process]");
+          thinkingDisplayed = true;
+        }
+        process.stdout.write(chunk.reasoningContent);
       }
 
       if (chunk.content) {
         contentBuffer += chunk.content;
-        if (!thinkingEnded && thinkingBuffer) {
-          thinkingEnded = true;
-          if (!thinkingDisplayed) {
-            output("[thinking process]");
-            thinkingDisplayed = true;
-          }
-          output(thinkingBuffer);
-          output("[eot]");
-        }
-        process.stdout.write(contentBuffer);
-        contentBuffer = "";
+        process.stdout.write(chunk.content);
       }
 
       if (chunk.toolCalls.length > 0) {
@@ -47,13 +40,8 @@ export async function runStreamingMode(
       }
 
       if (chunk.isComplete) {
-        if (!thinkingEnded && thinkingBuffer) {
+        if (thinkingDisplayed && !thinkingEnded) {
           thinkingEnded = true;
-          if (!thinkingDisplayed) {
-            output("[thinking process]");
-            thinkingDisplayed = true;
-          }
-          output(thinkingBuffer);
           output("[eot]");
         }
 
