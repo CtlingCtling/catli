@@ -86,60 +86,79 @@ export async function runStreamingMode(
             arguments: tc.arguments,
           }));
 
-          const results = await toolExecutor.executeAll(toolCallRequests);
+          const interactiveToolCalls = toolCallRequests.filter(
+            (tc) => tc.name === "question" && callbacks?.onInteractiveTool
+          );
+          const nonInteractiveToolCalls = toolCallRequests.filter(
+            (tc) => tc.name !== "question"
+          );
 
-          for (let i = 0; i < results.length; i++) {
-            const tcResult = results[i];
-            const tcRequest = toolCallRequests[i];
-            const toolName = tcRequest.name;
-            let toolContent = tcResult.result.content || "";
+          if (nonInteractiveToolCalls.length > 0) {
+            const results = await toolExecutor.executeAll(nonInteractiveToolCalls);
 
-            if (toolName === "question" && callbacks?.onInteractiveTool) {
-              const args = tcRequest.arguments as { question?: string; options?: Array<{ label: string; value: string }> };
-              const question = args.question || "";
-              const options = args.options || [];
+            for (let i = 0; i < results.length; i++) {
+              const tcResult = results[i];
+              const tcRequest = nonInteractiveToolCalls[i];
+              const toolName = tcRequest.name;
+              const toolContent = tcResult.result.content || "";
 
-              output(`[🛠️${toolName}]`);
-              output(question);
-              if (options.length > 0) {
-                for (const opt of options) {
-                  output(`  ${opt.label}`);
+              if (toolName === "run_bash" && toolContent) {
+                const lines = toolContent.split("\n");
+                output(`[🛠️${toolName}]`);
+                for (const line of lines) {
+                  output(`#️⃣> ${line}`);
                 }
-              }
-
-              const answer = await callbacks.onInteractiveTool({
-                toolId: tcResult.id,
-                toolName,
-                question,
-                options,
-              });
-
-              toolContent = `User selected: ${answer.selected}`;
-              output(toolContent);
-              output("[✅called]");
-            } else if (toolName === "run_bash" && toolContent) {
-              const lines = toolContent.split("\n");
-              output(`[🛠️${toolName}]`);
-              for (const line of lines) {
-                output(`#️⃣> ${line}`);
-              }
-              output("[✅called]");
-            } else {
-              output(`[🛠️${toolName}]`);
-              if (toolContent) {
-                output(toolContent);
-              } else if (tcResult.result.error) {
-                output(`[❌error]: ${tcResult.result.error}`);
+                output("[✅called]");
               } else {
-                output("[✅done]");
+                output(`[🛠️${toolName}]`);
+                if (toolContent) {
+                  output(toolContent);
+                } else if (tcResult.result.error) {
+                  output(`[❌error]: ${tcResult.result.error}`);
+                } else {
+                  output("[✅done]");
+                }
+                output("[✅called]");
               }
-              output("[✅called]");
+
+              const toolMessage = new MessageBuilder()
+                .setRole(MessageRole.Tool)
+                .setContent(toolContent)
+                .setToolCall(tcResult.id, toolName)
+                .build();
+
+              sessionManager.addMessage(toolMessage);
             }
+          }
+
+          for (const tc of interactiveToolCalls) {
+            const args = tc.arguments as { question?: string; options?: Array<{ label: string; value: string }> };
+            const question = args.question || "";
+            const options = args.options || [];
+
+            output(`[🛠️${tc.name}]`);
+            output(question);
+            if (options.length > 0) {
+              for (let i = 0; i < options.length; i++) {
+                output(`  ${i + 1}. ${options[i].label}`);
+              }
+            }
+
+            const answer = await callbacks!.onInteractiveTool!({
+              toolId: tc.id,
+              toolName: tc.name,
+              question,
+              options,
+            });
+
+            const toolContent = `User selected: ${answer.selected}`;
+            output(toolContent);
+            output("[✅called]");
 
             const toolMessage = new MessageBuilder()
               .setRole(MessageRole.Tool)
               .setContent(toolContent)
-              .setToolCall(tcResult.id, toolName)
+              .setToolCall(tc.id, tc.name)
               .build();
 
             sessionManager.addMessage(toolMessage);
