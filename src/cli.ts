@@ -49,6 +49,8 @@ const slashHandler = new SlashHandler(commandRegistry);
 
 type CliMode = "normal" | "config" | "kitten";
 let currentMode: CliMode = "normal";
+let isStreamingInProgress = false;
+let streamingResolve: (() => void) | null = null;
 
 function setPrompt(rl: any, mode: CliMode): void {
   switch (mode) {
@@ -223,8 +225,11 @@ async function handleStreamingWithQuestions(
   sessionManager: SessionManager,
   apiClient: DeepSeekClient,
   toolExecutor: ToolExecutor
-): Promise<void> {
+): Promise<{ aborted: boolean }> {
   let streamingIterator: AsyncIterator<any> | null = null;
+  let aborted = false;
+
+  isStreamingInProgress = true;
 
   const onQuestionAnswer = async (request: any): Promise<string> => {
     const options = request.options || [];
@@ -244,7 +249,22 @@ async function handleStreamingWithQuestions(
       )[Symbol.asyncIterator]();
     }
 
-    const result = await streamingIterator.next();
+    if (apiClient.isAborted()) {
+      aborted = true;
+      break;
+    }
+
+    const result = await new Promise<{ done: boolean; value: any }>((resolve) => {
+      streamingResolve = () => {
+        resolve({ done: false, value: { type: "aborted" } });
+      };
+      streamingIterator!.next().then((r) => {
+        if (streamingResolve) {
+          streamingResolve = null;
+          resolve({ done: Boolean(r.done), value: r.value });
+        }
+      });
+    });
 
     if (result.done) {
       break;
@@ -256,6 +276,9 @@ async function handleStreamingWithQuestions(
       break;
     }
   }
+
+  isStreamingInProgress = false;
+  return { aborted };
 }
 
 async function handleUserInput(input: string): Promise<void> {
@@ -283,13 +306,23 @@ async function handleUserInput(input: string): Promise<void> {
     if (tools.length > 0) {
       const cfg = configManager.getConfig();
       if (cfg.streaming) {
-        await handleStreamingWithQuestions(
+        const { aborted } = await handleStreamingWithQuestions(
           messages,
           tools,
           sessionManager,
           apiClient,
           toolExecutor
         );
+
+        if (aborted) {
+          sessionManager.addMessage({
+            id: `abort-${Date.now()}`,
+            role: "user",
+            content: "[中断通知] 上一条请求已被用户中断，请勿继续执行任何工具调用。",
+            timestamp: Date.now(),
+          } as any);
+          output("[ℹ️] 对话已中断，上下文已记录。");
+        }
       } else {
         let result = await apiClient.generateWithTools(messages, tools);
 
@@ -475,6 +508,18 @@ async function main(): Promise<void> {
   rl.on("close", () => {
     output("👋Goodbye!");
     process.exit(0);
+  });
+
+  process.stdin.setRawMode?.(true);
+  process.stdin.on("keypress", (_str: string, key: any) => {
+    if (key.name === "escape" && isStreamingInProgress) {
+      output("\n[⛔ ESC pressed - aborting...]");
+      apiClient.abort();
+      if (streamingResolve) {
+        streamingResolve();
+        streamingResolve = null;
+      }
+    }
   });
 
   rl.prompt();
