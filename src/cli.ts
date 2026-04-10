@@ -511,8 +511,8 @@ async function main(): Promise<void> {
   });
 
   process.stdin.setRawMode?.(true);
-  process.stdin.on("keypress", (_str: string, key: any) => {
-    if (key.name === "escape" && isStreamingInProgress) {
+  process.stdin.on("keypress", (str: string) => {
+    if (str === "\x1b" && isStreamingInProgress) {
       output("\n[⛔ ESC pressed - aborting...]");
       apiClient.abort();
       if (streamingResolve) {
