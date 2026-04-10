@@ -7,7 +7,7 @@ import { createCommandRegistry, SlashHandler } from "./core/commands/index.js";
 import { MessageBuilder, MessageRole } from "./types/message.js";
 import { output, error } from "./utils/logger.js";
 import { initDebug, debug } from "./utils/debug.js";
-import { askQuestionInteractive } from "./utils/questionHandler.js";
+import * as readline from "readline";
 
 const DEBUG = process.argv.includes("--debug") || process.argv.includes("-d");
 if (DEBUG) {
@@ -242,11 +242,53 @@ async function handleUserInput(input: string): Promise<void> {
     if (tools.length > 0) {
       const cfg = configManager.getConfig();
       if (cfg.streaming) {
-        await runStreamingMode(messages, tools, sessionManager, apiClient, toolExecutor, {
-          onInteractiveTool: async (request) => {
-            return await askQuestionInteractive(request.question, request.options);
-          },
-        });
+        const streamingIterator = runStreamingMode(messages, tools, sessionManager, apiClient, toolExecutor);
+
+        for await (const chunk of streamingIterator) {
+          if (chunk.type === "question") {
+            const rl = readline.createInterface({
+              input: process.stdin,
+              output: process.stdout,
+            });
+
+            const question = chunk.question;
+            const options = chunk.options;
+
+            let display = `${question}\n`;
+            if (options.length > 0) {
+              for (let i = 0; i < options.length; i++) {
+                display += `  > ${options[i].label}\n`;
+              }
+            }
+            display += "\n> ";
+
+            const answer = await new Promise<string>((resolve) => {
+              rl.question(display, (ans) => {
+                rl.close();
+                resolve(ans.trim());
+              });
+            });
+
+            let selected = answer;
+            const num = parseInt(answer, 10);
+            if (!isNaN(num) && num >= 1 && num <= options.length) {
+              selected = options[num - 1].value;
+            }
+
+            const toolContent = `User selected: ${selected}`;
+            output(toolContent);
+            output("[✅called]");
+
+            const toolMessage = new MessageBuilder()
+              .setRole(MessageRole.Tool)
+              .setContent(toolContent)
+              .setToolCall(chunk.toolId, chunk.toolName)
+              .build();
+            sessionManager.addMessage(toolMessage);
+          } else if (chunk.type === "complete") {
+            break;
+          }
+        }
       } else {
         let result = await apiClient.generateWithTools(messages, tools);
 

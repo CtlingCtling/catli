@@ -4,25 +4,38 @@ import { output } from "../../utils/logger.js";
 import { SessionManager } from "../session/SessionManager.js";
 import { ToolExecutor } from "../tools/index.js";
 
-export interface InteractiveToolRequest {
+export interface QuestionRequest {
+  type: "question";
   toolId: string;
   toolName: string;
   question: string;
-  options?: Array<{ label: string; value: string }>;
+  options: Array<{ label: string; value: string }>;
 }
 
-export interface StreamingHandlerCallbacks {
-  onInteractiveTool?: (request: InteractiveToolRequest) => Promise<{ selected: string }>;
+export interface ToolResultItem {
+  toolId: string;
+  toolName: string;
+  result: string;
 }
 
-export async function runStreamingMode(
+export interface ToolResultChunk {
+  type: "tool_result";
+  results: ToolResultItem[];
+}
+
+export interface CompletionChunk {
+  type: "complete";
+}
+
+export type StreamingChunk = QuestionRequest | ToolResultChunk | CompletionChunk;
+
+export async function* runStreamingMode(
   messages: Awaited<ReturnType<SessionManager["getMessages"]>>,
   tools: any[],
   sessionManager: SessionManager,
   apiClient: DeepSeekClient,
-  toolExecutor: ToolExecutor,
-  callbacks?: StreamingHandlerCallbacks
-): Promise<void> {
+  toolExecutor: ToolExecutor
+): AsyncGenerator<StreamingChunk> {
   let currentMessages = [...messages];
   let isComplete = false;
   let contentBuffer = "";
@@ -86,21 +99,19 @@ export async function runStreamingMode(
             arguments: tc.arguments,
           }));
 
-          const interactiveToolCalls = toolCallRequests.filter(
-            (tc) => tc.name === "question" && callbacks?.onInteractiveTool
-          );
-          const nonInteractiveToolCalls = toolCallRequests.filter(
-            (tc) => tc.name !== "question"
-          );
+          const questionToolCalls = toolCallRequests.filter((tc) => tc.name === "question");
+          const nonQuestionToolCalls = toolCallRequests.filter((tc) => tc.name !== "question");
 
-          if (nonInteractiveToolCalls.length > 0) {
-            const results = await toolExecutor.executeAll(nonInteractiveToolCalls);
+          const toolResults: ToolResultItem[] = [];
+
+          if (nonQuestionToolCalls.length > 0) {
+            const results = await toolExecutor.executeAll(nonQuestionToolCalls);
 
             for (let i = 0; i < results.length; i++) {
               const tcResult = results[i];
-              const tcRequest = nonInteractiveToolCalls[i];
+              const tcRequest = nonQuestionToolCalls[i];
               const toolName = tcRequest.name;
-              const toolContent = tcResult.result.content || "";
+              let toolContent = tcResult.result.content || "";
 
               if (toolName === "run_bash" && toolContent) {
                 const lines = toolContent.split("\n");
@@ -128,40 +139,53 @@ export async function runStreamingMode(
                 .build();
 
               sessionManager.addMessage(toolMessage);
+              toolResults.push({ toolId: tcResult.id, toolName, result: toolContent });
             }
           }
 
-          for (const tc of interactiveToolCalls) {
-            const args = tc.arguments as { question?: string; options?: Array<{ label: string; value: string }> };
-            const question = args.question || "";
-            const options = args.options || [];
+          if (questionToolCalls.length > 0) {
+            for (const tc of questionToolCalls) {
+              let options: Array<{ label: string; value: string }> = [];
+              const rawOptions = tc.arguments.options;
 
-            output(`[🛠️${tc.name}]`);
-            output(question);
-            if (options.length > 0) {
-              for (let i = 0; i < options.length; i++) {
-                output(`  ${i + 1}. ${options[i].label}`);
+              if (Array.isArray(rawOptions)) {
+                options = rawOptions.map((opt: unknown) => {
+                  if (typeof opt === "string") {
+                    return { label: opt, value: opt };
+                  }
+                  if (typeof opt === "object" && opt !== null) {
+                    const obj = opt as Record<string, unknown>;
+                    return { label: String(obj.label ?? obj.value ?? ""), value: String(obj.value ?? obj.label ?? "") };
+                  }
+                  return { label: String(opt), value: String(opt) };
+                });
               }
+
+              const question = String(tc.arguments.question || "");
+
+              output(`[🛠️${tc.name}]`);
+              output(question);
+              if (options.length > 0) {
+                for (let i = 0; i < options.length; i++) {
+                  output(`  > ${options[i].label}`);
+                }
+              }
+
+              yield {
+                type: "question",
+                toolId: tc.id,
+                toolName: tc.name,
+                question,
+                options,
+              };
+
+              pendingToolCalls = [];
+              return;
             }
+          }
 
-            const answer = await callbacks!.onInteractiveTool!({
-              toolId: tc.id,
-              toolName: tc.name,
-              question,
-              options,
-            });
-
-            const toolContent = `User selected: ${answer.selected}`;
-            output(toolContent);
-            output("[✅called]");
-
-            const toolMessage = new MessageBuilder()
-              .setRole(MessageRole.Tool)
-              .setContent(toolContent)
-              .setToolCall(tc.id, tc.name)
-              .build();
-
-            sessionManager.addMessage(toolMessage);
+          if (toolResults.length > 0) {
+            yield { type: "tool_result", results: toolResults };
           }
 
           pendingToolCalls = [];
@@ -170,12 +194,14 @@ export async function runStreamingMode(
           currentMessages = currentSession?.messages || [];
         } else {
           isComplete = true;
+          yield { type: "complete" };
         }
       }
     }
 
     if (!hasToolCalls && !isComplete) {
       isComplete = true;
+      yield { type: "complete" };
     }
   }
 }
