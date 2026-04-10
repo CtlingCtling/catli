@@ -48,13 +48,13 @@ let currentMode: CliMode = "normal";
 function setPrompt(rl: any, mode: CliMode): void {
   switch (mode) {
     case "config":
-      rl.setPrompt("confi> ");
+      rl.setPrompt("c⚙️nfi> ");
       break;
     case "kitten":
-      rl.setPrompt("kitty> ");
+      rl.setPrompt("ki🐈y> ");
       break;
     default:
-      rl.setPrompt("catli> ");
+      rl.setPrompt("c🐱li> ");
   }
 }
 
@@ -229,9 +229,8 @@ async function handleUserInput(input: string): Promise<void> {
     .build();
 
   sessionManager.addMessage(userMessage);
-    output("");
 
-    try {
+  try {
     const messages = await sessionManager.getMessages();
     const tools = toolRegistry.list();
 
@@ -242,112 +241,94 @@ async function handleUserInput(input: string): Promise<void> {
       } else {
         let result = await apiClient.generateWithTools(messages, tools);
 
-      if (DEBUG) {
-        output("[DEBUG] Initial generateWithTools result:");
-        output(JSON.stringify(result, null, 2));
-        output("[DEBUG] Messages before tool loop:");
-        output(JSON.stringify(messages, null, 2));
-      }
-
-      if (result.reasoningContent) {
-        output("[thinking process]");
-        output(result.reasoningContent);
-        output("[eot]");
-        output("");
-      }
-
-      while (result.toolCalls.length > 0) {
-        const assistantWithTools = new MessageBuilder()
-          .setRole(MessageRole.Assistant)
-          .setContent(result.content)
-          .setToolCalls(result.toolCalls.map((tc) => ({
-            id: tc.id,
-            name: tc.name,
-            arguments: JSON.stringify(tc.arguments),
-          })))
-          .build();
-        sessionManager.addMessage(assistantWithTools);
-
-        const toolCallRequests = result.toolCalls.map((tc) => ({
-          id: tc.id,
-          name: tc.name,
-          arguments: tc.arguments,
-        }));
-
-        const results = await toolExecutor.executeAll(toolCallRequests);
-
-        for (const tcResult of results) {
-          const toolName = toolCallRequests.find((t) => t.id === tcResult.id)?.name || "";
-          const toolContent = tcResult.result.content || "";
-
-          if (toolName === "bash_tool" && toolContent) {
-            const lines = toolContent.split("\n");
-            output(`[${toolName}]`);
-            for (const line of lines) {
-              output(`> ${line}`);
-            }
-            output("[called]");
-          } else if (toolName === "run_bash" && toolContent) {
-            const lines = toolContent.split("\n");
-            output(`[run_bash]`);
-            for (const line of lines) {
-              output(`> ${line}`);
-            }
-            output("[called]");
-          } else {
-            output(`[${toolName}]`);
-            if (toolContent) {
-              output(toolContent);
-            } else if (tcResult.result.error) {
-              output(`Error: ${tcResult.result.error}`);
-            } else {
-              output("(done)");
-            }
-            output("[called]");
-          }
-
-          const toolMessage = new MessageBuilder()
-            .setRole(MessageRole.Tool)
-            .setContent(tcResult.result.content)
-            .setToolCall(tcResult.id, toolName)
-            .build();
-
-          sessionManager.addMessage(toolMessage);
-        }
-
         if (DEBUG) {
-          const currentSession = sessionManager.getCurrentSession();
-          output("[DEBUG] Tool results:");
-          output(JSON.stringify(results, null, 2));
-          output("[DEBUG] Messages after tool execution:");
-          output(JSON.stringify(currentSession?.messages, null, 2));
-        }
-
-        const currentSession = sessionManager.getCurrentSession();
-        const updatedMessages = currentSession?.messages || [];
-        result = await apiClient.generateWithTools(updatedMessages, tools);
-
-        if (result.reasoningContent) {
-          output("[thinking process]");
-          output(result.reasoningContent);
-          output("[eot]");
-          output("");
-        }
-
-        if (DEBUG) {
-          output("[DEBUG] Next generateWithTools result:");
+          output("[DEBUG] Initial generateWithTools result:");
           output(JSON.stringify(result, null, 2));
         }
-      }
 
-      const assistantMessage = new MessageBuilder()
-        .setRole(MessageRole.Assistant)
-        .setContent(result.content)
-        .build();
+        if (result.reasoningContent) {
+          output("\n[thinking process]");
+          output(result.reasoningContent);
+          output("[eot]\n");
+        }
 
-      sessionManager.addMessage(assistantMessage);
-      output(result.content);
-      output("");
+        while (result.toolCalls.length > 0) {
+          const assistantWithTools = new MessageBuilder()
+            .setRole(MessageRole.Assistant)
+            .setContent(result.content)
+            .setToolCalls(result.toolCalls.map((tc) => ({
+              id: tc.id,
+              name: tc.name,
+              arguments: JSON.stringify(tc.arguments),
+            })))
+            .build();
+          sessionManager.addMessage(assistantWithTools);
+
+          const toolCallRequests = result.toolCalls.map((tc) => ({
+            id: tc.id,
+            name: tc.name,
+            arguments: tc.arguments,
+          }));
+
+          const results = await toolExecutor.executeAll(toolCallRequests);
+
+          for (const tcResult of results) {
+            const toolName = toolCallRequests.find((t) => t.id === tcResult.id)?.name || "";
+            const toolContent = tcResult.result.content || "";
+
+            if (toolName === "bash_tool" && toolContent) {
+              const lines = toolContent.split("\n");
+              output(`[🛠️${toolName}]`);
+              for (const line of lines) {
+                output(`#️⃣> ${line}`);
+              }
+              output("[✅called]");
+            } else if (toolName === "run_bash" && toolContent) {
+              const lines = toolContent.split("\n");
+              output(`[🛠️run_bash]`);
+              for (const line of lines) {
+                output(`#️⃣> ${line}`);
+              }
+              output("[✅called]");
+            } else {
+              output(`[🛠️${toolName}]`);
+              if (toolContent) {
+                output(toolContent);
+              } else if (tcResult.result.error) {
+                output(`[❌error]: ${tcResult.result.error}`);
+              } else {
+                output("[✅done]");
+              }
+              output("[✅called]");
+            }
+
+            const toolMessage = new MessageBuilder()
+              .setRole(MessageRole.Tool)
+              .setContent(tcResult.result.content)
+              .setToolCall(tcResult.id, toolName)
+              .build();
+
+            sessionManager.addMessage(toolMessage);
+          }
+
+          const currentSession = sessionManager.getCurrentSession();
+          const updatedMessages = currentSession?.messages || [];
+          result = await apiClient.generateWithTools(updatedMessages, tools);
+
+          if (result.reasoningContent) {
+            output("\n[thinking process]");
+            output(result.reasoningContent);
+            output("[eot]\n");
+          }
+        }
+
+        const assistantMessage = new MessageBuilder()
+          .setRole(MessageRole.Assistant)
+          .setContent(result.content)
+          .build();
+
+        sessionManager.addMessage(assistantMessage);
+        output(result.content);
       }
     } else {
       let fullResponse = "";
@@ -363,12 +344,11 @@ async function handleUserInput(input: string): Promise<void> {
           .build();
 
         sessionManager.addMessage(assistantMessage);
-        output("");
       }
     }
   } catch (err) {
     const errMsg = err as Error;
-    error(`Error: ${errMsg.message}`);
+    error(`[❌error]: ${errMsg.message}`);
   }
 
   sessionManager.setStatus("idle" as any);
@@ -376,14 +356,14 @@ async function handleUserInput(input: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  output("CatLI - Cat CLI");
+  output("C🐱LI-CatLI");
   output("Type /help for available commands\n");
 
   const readline = await import("readline");
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    prompt: "catli> ",
+    prompt: "c🐱li> ",
   });
 
   rl.on("line", async (line: string) => {
@@ -406,15 +386,15 @@ async function main(): Promise<void> {
 
     if (trimmed === "/config") {
       const cfg = configManager.getConfig();
-      output("Current configuration:");
-      output(`  model: ${cfg.model}`);
-      output(`  maxTokens: ${cfg.maxTokens}`);
-      output(`  temperature: ${cfg.temperature}`);
-      output(`  compressTokenThreshold: ${cfg.compressTokenThreshold}`);
-      output(`  compressPreserveRecent: ${cfg.compressPreserveRecent}`);
-      output(`  compressMaxChunkTokens: ${cfg.compressMaxChunkTokens}`);
-      output(`  historyPath: ${cfg.historyPath}`);
-      output(`  streaming: ${cfg.streaming}`);
+      output("Current configuration🙀:");
+      output(`  🐱model: ${cfg.model}`);
+      output(`  📊maxTokens: ${cfg.maxTokens}`);
+      output(`  🌡️temperature: ${cfg.temperature}`);
+      output(`  🔄compressTokenThreshold: ${cfg.compressTokenThreshold}`);
+      output(`  🔄compressPreserveRecent: ${cfg.compressPreserveRecent}`);
+      output(`  🔄compressMaxChunkTokens: ${cfg.compressMaxChunkTokens}`);
+      output(`  📁historyPath: ${cfg.historyPath}`);
+      output(`  📺streaming: ${cfg.streaming}`);
       output("");
       output("Enter key=value to set, key to view, e to exit.");
       enterMode(rl, "config");
@@ -422,12 +402,12 @@ async function main(): Promise<void> {
     }
 
     if (trimmed === "/kitten") {
-      output("Kitten configuration:");
-      output("  apiKeyEnv: DEEPSEEK_API_KEY");
-      output("  baseUrl: https://api.deepseek.com");
-      output("  model: deepseek-chat");
+      output("Ki🐈en configuration:");
+      output("  🔑apiKeyEnv: DEEPSEEK_API_KEY");
+      output("  🔗baseUrl: https://api.deepseek.com");
+      output("  🐈model: deepseek-chat");
       output("");
-      output("Enter key=value to set, e to exit.");
+      output("↩️Enter key=value to set, e to exit.💨");
       enterMode(rl, "kitten");
       return;
     }
@@ -442,7 +422,7 @@ async function main(): Promise<void> {
   });
 
   rl.on("close", () => {
-    output("Goodbye!");
+    output("👋Goodbye!");
     process.exit(0);
   });
 
@@ -450,6 +430,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  error(`Fatal error: ${err}`);
+  error(`[💀FATAL]: ${err}`);
   process.exit(1);
 });
