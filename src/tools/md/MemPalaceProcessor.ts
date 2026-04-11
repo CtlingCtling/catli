@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync, renameSync } from "fs";
+import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync, renameSync, realpathSync } from "fs";
 import { join, basename, extname } from "path";
 import { homedir } from "os";
 import { spawn } from "child_process";
@@ -24,11 +24,12 @@ export class MemPalaceProcessor {
   static async process(options: MemPalaceOptions): Promise<ProcessedFile[]> {
     const results: ProcessedFile[] = [];
     const memPalaceDir = join(homedir(), ".catli", "memPalace");
+    const inputDir = realpathSync(options.inputDir);
 
     this.ensureDirectories(memPalaceDir);
 
-    const files = this.findMarkdownFiles(options.inputDir, options.recursive || false);
-    output(`Found ${files.length} markdown file(s) in ${options.inputDir}`);
+    const files = this.findMarkdownFiles(inputDir, options.recursive || false);
+    output(`Found ${files.length} markdown file(s) in ${inputDir}`);
 
     for (const file of files) {
       const result = await this.processFile(file, memPalaceDir);
