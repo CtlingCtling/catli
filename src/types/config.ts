@@ -2,7 +2,6 @@ export interface Config {
   model: string;
   apiKey: string;
   baseUrl: string;
-  historyPath: string;
   maxTokens: number;
   temperature: number;
   compressTokenThreshold: number;

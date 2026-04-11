@@ -107,8 +107,6 @@ function handleConfigInput(rl: any, input: string): void {
       output(`  compressPreserveRecent: ${cfg.compressPreserveRecent}`);
     } else if (trimmed === "compressMaxChunkTokens") {
       output(`  compressMaxChunkTokens: ${cfg.compressMaxChunkTokens}`);
-    } else if (trimmed === "historyPath") {
-      output(`  historyPath: ${cfg.historyPath}`);
     } else {
       output(`Unknown config key: ${trimmed}`);
     }
@@ -169,9 +167,6 @@ function handleConfigInput(rl: any, input: string): void {
       configManager.set("compressMaxChunkTokens", num);
       output(`Updated: compressMaxChunkTokens = ${num}`);
     }
-  } else if (keyTrimmed === "historyPath") {
-    configManager.set("historyPath", value);
-    output(`Updated: historyPath = ${value}`);
   } else if (keyTrimmed === "streaming") {
     const boolVal = value === "true";
     configManager.set("streaming", boolVal);
@@ -487,8 +482,7 @@ async function main(): Promise<void> {
       output(`  🔄compressTokenThreshold: ${cfg.compressTokenThreshold}`);
       output(`  🔄compressPreserveRecent: ${cfg.compressPreserveRecent}`);
       output(`  🔄compressMaxChunkTokens: ${cfg.compressMaxChunkTokens}`);
-      output(`  📁historyPath: ${cfg.historyPath}`);
-      output(`  📺streaming: ${cfg.streaming}`);
+      output(`  streaming: ${cfg.streaming}`);
       output("");
       output("Enter key=value to set, key to view, e to exit.");
       enterMode(rl, "config");
