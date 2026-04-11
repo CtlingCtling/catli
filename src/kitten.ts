@@ -22,7 +22,7 @@ async function main() {
 
   const fullPrompt = input ? `${prompt}\n\nInput:\n${input}` : prompt;
 
-  const manager = KittenConfigManager.getInstance();
+  const manager = new KittenConfigManager();
   const config = manager.getConfig();
   const apiKey = manager.getApiKey();
 

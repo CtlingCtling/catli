@@ -4,22 +4,12 @@ export interface KittenConfig {
   apiKeyEnv: string;
 }
 
-class KittenConfigManagerImpl {
-  private static instance: KittenConfigManagerImpl | null = null;
+export class KittenConfigManager {
   config: KittenConfig = {
     baseUrl: process.env.KITTEN_BASE_URL || "https://api.deepseek.com",
     model: process.env.KITTEN_MODEL || "deepseek-chat",
     apiKeyEnv: process.env.KITTEN_API_KEY_ENV || "DEEPSEEK_API_KEY",
   };
-
-  private constructor() {}
-
-  static getInstance(): KittenConfigManagerImpl {
-    if (!KittenConfigManagerImpl.instance) {
-      KittenConfigManagerImpl.instance = new KittenConfigManagerImpl();
-    }
-    return KittenConfigManagerImpl.instance;
-  }
 
   getConfig(): KittenConfig {
     return { ...this.config };
@@ -33,5 +23,3 @@ class KittenConfigManagerImpl {
     return process.env[this.config.apiKeyEnv];
   }
 }
-
-export const KittenConfigManager = KittenConfigManagerImpl;
