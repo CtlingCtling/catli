@@ -11,7 +11,7 @@ export class ConfigManager {
 
   constructor(configPath?: string) {
     this.config = { ...defaultConfig };
-    this.configPath = configPath || join(homedir(), ".catli.json");
+    this.configPath = configPath || join(homedir(), ".catli", "config.json");
     this.load();
   }
 

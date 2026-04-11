@@ -8,6 +8,8 @@ import { MessageBuilder, MessageRole } from "./types/message.js";
 import { output, error } from "./utils/logger.js";
 import { initDebug, debug } from "./utils/debug.js";
 import { askQuestion } from "./utils/questionHandler.js";
+import { homedir } from "os";
+import { join } from "path";
 
 const DEBUG = process.argv.includes("--debug") || process.argv.includes("-d");
 if (DEBUG) {
@@ -19,7 +21,7 @@ const configManager = new ConfigManager(CONFIG_PATH);
 const config = configManager.getConfig();
 
 if (!config.apiKey) {
-  error("API key not found. Set DEEPSEEK_API_KEY environment variable or configure in ~/.catli.json");
+  error("API key not found. Set DEEPSEEK_API_KEY environment variable or configure in ~/.catli/config.json");
   process.exit(1);
 }
 
@@ -32,7 +34,7 @@ const apiClient = new DeepSeekClient(
 );
 
 const sessionManager = new SessionManager(
-  config.historyPath,
+  join(homedir(), ".catli", "sessions"),
   apiClient,
   {
     tokenThreshold: config.compressTokenThreshold,
@@ -441,6 +443,13 @@ async function handleUserInput(input: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const fs = await import("fs");
+  const catliDir = join(homedir(), ".catli");
+  if (!fs.existsSync(catliDir)) {
+    error(`[💀FATAL]: ~/.catli/ directory not found. Please create it first.`);
+    process.exit(1);
+  }
+
   output("C🐱LI-CatLI");
   output("Type /help for available commands\n");
 
